@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices
+---
+###########################################
+# 1) PersistentVolume (PV)
+###########################################
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  namespace: microservices
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  hostPath:
+    path: "/run/desktop/mnt/host/c/temp/testfiles"
+---
+###########################################
+# 2) PersistentVolumeClaim (PVC)
+###########################################
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: microservices
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: manual
+---
+###########################################
+# 3) StatefulSet
+###########################################
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: microservices
+spec:
+  serviceName: mysql-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-initdb
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+        - name: mysql-initdb
+          configMap:
+            name: mysql-initdb-cm
+---
+###########################################
+# 4) Headless Service
+###########################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: microservices
+spec:
+  clusterIP: None
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+---
+###########################################
+# 5) ConfigMap
+###########################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb-cm
+  namespace: microservices
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS orderdb;
+    CREATE DATABASE IF NOT EXISTS product;
+    CREATE DATABASE IF NOT EXISTS payment;

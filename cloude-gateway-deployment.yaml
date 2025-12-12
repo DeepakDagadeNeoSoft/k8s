@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-server-app
+  labels:
+    app: cloud-server-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-server-app
+  template:
+    metadata:
+      labels:
+        app: cloud-server-app
+    spec:
+      containers:
+        - name: cloud-server-app
+          image: getway-service:0.0.1   # corrected image name
+          imagePullPolicy: Never         # use local Docker image
+          ports:
+            - containerPort: 9296
+          env:
+            - name: CONFIG_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: config-cm
+                  key: config_url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-server-svc
+spec:
+  type: LoadBalancer
+  selector:
+    app: cloud-server-app
+  ports:
+    - port: 80
+      targetPort: 9296

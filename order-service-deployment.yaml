@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-server-app
+  namespace: microservices
+spec:
+  selector:
+    matchLabels:
+      app: order-server-app
+  template:
+    metadata:
+      labels:
+        app: order-server-app
+    spec:
+      containers:
+        - name: order-server-app
+          image: order-service
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9296
+          env:
+            - name: CONFIG_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: config_url
+                  name: config-cm
+
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: hostname
+                  name: mysql-cm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-svc
+  namespace: microservices
+spec:
+  selector:
+    app: order-server-app
+  ports:
+    - port: 80
+      targetPort: 9296
