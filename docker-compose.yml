@@ -1,0 +1,170 @@
+version: "3.9"
+
+networks:
+  microservices:
+    driver: bridge
+
+services:
+
+  # Service Registry (Eureka)
+  service-registry:
+    image: service-registray:0.0.1
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Config Server
+  config-server:
+    image: config-service:0.0.1
+    container_name: config-server
+    ports:
+      - "9296:9296"
+    networks:
+      - microservices
+    environment:
+      - EUREKA_SERVER_ADDRESS=http://service-registry:8761/eureka
+    depends_on:
+      - service-registry
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9296/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Auth Service
+  auth-service:
+    image: auth-service:0.0.1
+    container_name: auth-service
+    ports:
+      - "9000:9000"
+    networks:
+      - microservices
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - EUREKA_SERVER_ADDRESS=http://service-registry:8761/eureka
+      - CONFIG_SERVER_URL=http://config-server:9296
+    depends_on:
+      - service-registry
+      - config-server
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Gateway Service
+  gateway-service:
+    image: getway-service:0.0.1
+    container_name: gateway-service
+    ports:
+      - "9091:9091"
+    networks:
+      - microservices
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - EUREKA_SERVER_ADDRESS=http://service-registry:8761/eureka
+      - CONFIG_SERVER_URL=http://config-server:9296
+    depends_on:
+      - service-registry
+      - config-server
+      - auth-service
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Order Service
+  order-service:
+    image: order-service:0.0.1
+    container_name: order-service
+    ports:
+      - "8081:8081"
+    networks:
+      - microservices
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - EUREKA_SERVER_ADDRESS=http://service-registry:8761/eureka
+      - CONFIG_SERVER_URL=http://config-server:9296
+    depends_on:
+      - service-registry
+      - config-server
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9100/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Product Service
+  product-service:
+    image: product-service:0.0.1
+    container_name: product-service
+    ports:
+      - "8080:8080"
+    networks:
+      - microservices
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - EUREKA_SERVER_ADDRESS=http://service-registry:8761/eureka
+      - CONFIG_SERVER_URL=http://config-server:9296
+    depends_on:
+      - service-registry
+      - config-server
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Payment Service
+  payment-service:
+    image: payment-service:0.0.1
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    networks:
+      - microservices
+    environment:
+      - SPRING_PROFILES_ACTIVE=default
+      - EUREKA_SERVER_ADDRESS=http://service-registry:8761/eureka
+      - CONFIG_SERVER_URL=http://config-server:9296
+    depends_on:
+      - service-registry
+      - config-server
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9300/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Zipkin (optional)
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - microservices
+    restart: unless-stopped
+
